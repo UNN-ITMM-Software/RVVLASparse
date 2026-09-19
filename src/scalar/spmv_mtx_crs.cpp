@@ -17,7 +17,7 @@ sparse_matrix_status sparse_mv<double, spMtxCRS, false>(
                                std::vector<double> &y){
   sparse_matrix_status status;
   
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic, 256)
   for (int i = 0; i < mat.m; i++) {
     double tmp = 0.0;
     for (int j = mat.Rst[i]; j < mat.Rst[i + 1]; j++) 
@@ -39,7 +39,7 @@ sparse_matrix_status sparse_mv<float, spMtxCRS, false>(
                                std::vector<float> &y){
   sparse_matrix_status status;
   
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic, 256)
   for (int i = 0; i < mat.m; i++) {
     float tmp = 0.0;
     for (int j = mat.Rst[i]; j < mat.Rst[i + 1]; j++) 
