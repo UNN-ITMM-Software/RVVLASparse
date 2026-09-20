@@ -10,15 +10,24 @@
  * source tree)
  *========================================================
  */
-#pragma once
 
+#pragma once
+#include <string>
+#include <map>
 #include "CRS.h"
-#include "SELL_C_Sigma.h"
-#include "CRS.h"
-#include "CVR.h"
-#include "VNEC.h"
-#include "LAV.h"
-#include "VHCC.h"
-#include "HCSR.h"
-#include "convert.h"
-#include "spmv_mtx.h"
+
+namespace SparseMatrixLib
+{
+union convertValue{
+  int i;
+  double d;
+};
+
+struct convertParams{
+  std::map<std::string, convertValue> param;
+};
+
+template<class T, template<class> class MtxDist, bool simd = true>
+void convert(MtxDist<T> &dist, const spMtxCRS<T> &src, const convertParams &params);
+
+}

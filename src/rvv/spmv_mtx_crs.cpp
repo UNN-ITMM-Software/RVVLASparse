@@ -6,7 +6,79 @@
 namespace SparseMatrixLib
 {
 
-template<> 
+#define SPMV_CSR_RVV(                                                          \
+    FP_TYPE,                                                                   \
+    FP_SEW,                                                                    \
+    FP_RVV,                                                                    \
+    FP_RVV_SUF,                                                                \
+    FP_LMUL,                                                                   \
+    FP_OFFSET,                                                                 \
+    INT_TYPE,                                                                  \
+    INT_RVV_SUF,                                                               \
+    INT_LMUL,                                                                  \
+    FUNC_NAME)                                                                 \
+                                                                               \
+void FUNC_NAME(const spMtxCRS<FP_TYPE>& mat,                                   \
+               const std::vector<FP_TYPE>& b,                                  \
+               std::vector<FP_TYPE>& y,                                        \
+               FP_TYPE alpha,                                                  \
+               FP_TYPE beta)                                                   \
+{                                                                              \
+    const int vlmax = __riscv_vsetvlmax_e##FP_SEW##FP_LMUL();                  \
+                                                                               \
+    _Pragma("omp parallel for")                                                \
+    for (int i = 0; i < mat.m; ++i)                                            \
+    {                                                                          \
+        int vl = vlmax;                                                        \
+                                                                               \
+        v##FP_RVV##FP_LMUL##_t res =                                           \
+            __riscv_vfmv_v_f_##FP_RVV_SUF((FP_TYPE)0, vlmax);                  \
+                                                                               \
+        for (int j = mat.Rst[i]; j < mat.Rst[i + 1]; j += vl)                  \
+        {                                                                      \
+            vl = __riscv_vsetvl_e##FP_SEW##FP_LMUL(mat.Rst[i + 1] - j);        \
+                                                                               \
+            v##FP_RVV##FP_LMUL##_t val =                                       \
+                __riscv_vle##FP_SEW##_v_##FP_RVV_SUF(mat.Val + j, vl);         \
+                                                                               \
+            v##INT_TYPE##INT_LMUL##_t index =                                  \
+                __riscv_vle32_v_##INT_RVV_SUF(                                 \
+                    reinterpret_cast<const uint32_t*>(mat.Col + j), vl);       \
+                                                                               \
+            v##INT_TYPE##INT_LMUL##_t index_shift =                            \
+            __riscv_vsll_vx_##INT_RVV_SUF(index, FP_OFFSET, vl);               \
+                                                                               \
+            v##FP_RVV##FP_LMUL##_t x =                                         \
+                __riscv_vloxei32_v_##FP_RVV_SUF(b.data(), index_shift, vl);    \
+                                                                               \
+            res = __riscv_vfmacc_vv_##FP_RVV_SUF##_tu(res, val, x, vl);        \
+        }                                                                      \
+                                                                               \
+        vl = __riscv_vsetvl_e##FP_SEW##FP_LMUL(vlmax);                         \
+                                                                               \
+        v##FP_RVV##m1_t red_zero =                                             \
+            __riscv_vfmv_v_f_f##FP_SEW##m1((FP_TYPE)0, 1);                     \
+                                                                               \
+        v##FP_RVV##m1_t sum =                                                  \
+            __riscv_vfredusum_vs_##FP_RVV_SUF##_f##FP_SEW##m1(                 \
+                res, red_zero, vl);                                            \
+                                                                               \
+        FP_TYPE tmp = __riscv_vfmv_f_s_f##FP_SEW##m1_f##FP_SEW(sum);           \
+                                                                               \
+        y[i] = alpha * tmp + beta * y[i];                                      \
+    }                                                                          \
+}
+
+SPMV_CSR_RVV(double, 64, float64, f64m1, m1, 3, uint32, u32mf2, mf2, spmv_crs_f64m1)
+SPMV_CSR_RVV(double, 64, float64, f64m2, m2, 3, uint32, u32m1, m1, spmv_crs_f64m2)
+SPMV_CSR_RVV(double, 64, float64, f64m4, m4, 3, uint32, u32m2, m2, spmv_crs_f64m4)
+SPMV_CSR_RVV(double, 64, float64, f64m8, m8, 3, uint32, u32m4, m4, spmv_crs_f64m8)
+SPMV_CSR_RVV(float, 32, float32, f32m1, m1, 2, uint32, u32m1, m1, spmv_crs_f32m1)
+SPMV_CSR_RVV(float, 32, float32, f32m2, m2, 2, uint32, u32m2, m2, spmv_crs_f32m2)
+SPMV_CSR_RVV(float, 32, float32, f32m4, m4, 2, uint32, u32m4, m4, spmv_crs_f32m4)
+SPMV_CSR_RVV(float, 32, float32, f32m8, m8, 2, uint32, u32m8, m8, spmv_crs_f32m8)
+
+template<>
 sparse_matrix_status sparse_mv<double, spMtxCRS, true>(
                                sparse_operation_t type_op, 
                                double alpha, 
@@ -15,43 +87,13 @@ sparse_matrix_status sparse_mv<double, spMtxCRS, true>(
                                const std::vector<double> &b,
                                double beta,
                                std::vector<double> &y){
-  sparse_matrix_status status;
-  unsigned int gvl_max;
-  
-  gvl_max = __riscv_vsetvlmax_e64m4();
-  
-#pragma omp parallel for
-  for (int i = 0; i < mat.m; i++) {
-    double tmp = 0.0;
-    int j = mat.Rst[i];
-    unsigned int gvl = gvl_max; // __riscv_vsetvl_e64m4(mat.Rst[i + 1] - mat.Rst[i]); //  
-    vfloat64m4_t res = __riscv_vfmv_v_f_f64m4(0.0, gvl);
-
-    while (j + gvl <= mat.Rst[i + 1]) {
-      vfloat64m4_t val  = __riscv_vle64_v_f64m4(mat.Val + j, gvl);
-      vuint32m2_t  index = __riscv_vle32_v_u32m2(reinterpret_cast<uint32_t *>(mat.Col + j), gvl);    
-      vuint32m2_t index_shift = __riscv_vsll_vx_u32m2(index, 3, gvl);    
-      vfloat64m4_t b_   = __riscv_vloxei32_v_f64m4(b.data(), index_shift, gvl);
-      res = __riscv_vfmadd_vv_f64m4(val, b_, res, gvl);
-      j += gvl;
-    }
-    
-    vfloat64m1_t sum = __riscv_vfmv_v_f_f64m1(0.0, gvl);
-    sum = __riscv_vfredosum_vs_f64m4_f64m1(res, sum, gvl);
-    tmp = __riscv_vfmv_f_s_f64m1_f64(sum);
-
-    for (; j < mat.Rst[i + 1]; j++)
-      tmp += mat.Val[j] * b[mat.Col[j]];
-    
-    y[i] = tmp * alpha + beta * y[i];
-  }
-
-  return status;
+    sparse_matrix_status status;
+    spmv_crs_f64m4(mat, b, y, alpha, beta);
+    return status;
 }
 
-
-
-template<> sparse_matrix_status sparse_mv<float, spMtxCRS, true>(
+template<>
+sparse_matrix_status sparse_mv<float, spMtxCRS, true>(
                                sparse_operation_t type_op, 
                                float alpha, 
                                const spMtxCRS<float> &mat, 
@@ -59,43 +101,9 @@ template<> sparse_matrix_status sparse_mv<float, spMtxCRS, true>(
                                const std::vector<float> &b,
                                float beta,
                                std::vector<float> &y){
-  sparse_matrix_status status;
-  unsigned int gvl_max;
-
-  gvl_max = __riscv_vsetvlmax_e32m4();
-
-#pragma omp parallel for
-  for (int i = 0; i < mat.m; i++) {
-    double tmp = 0.0;
-    int j = mat.Rst[i];
-    vfloat32m4_t val;
-    vuint32m4_t  index;
-    vuint32m4_t index_shift;
-    vfloat32m4_t b_;
-    vfloat32m1_t sum;
-    unsigned int gvl = gvl_max;  
-    vfloat32m4_t res = __riscv_vfmv_v_f_f32m4(0.0, gvl);
-
-    while (j + gvl <= mat.Rst[i + 1]) {
-      val  = __riscv_vle32_v_f32m4(mat.Val + j, gvl);
-      index = __riscv_vle32_v_u32m4(reinterpret_cast<uint32_t *>(mat.Col + j), gvl);    
-      index_shift = __riscv_vsll_vx_u32m4(index, 2, gvl);    
-      b_   = __riscv_vloxei32_v_f32m4(b.data(), index_shift, gvl);
-      res = __riscv_vfmadd_vv_f32m4(val, b_, res, gvl);
-      j += gvl;
-    }
-
-    sum = __riscv_vfmv_v_f_f32m1(0.0, gvl);
-    sum = __riscv_vfredosum_vs_f32m4_f32m1(res, sum, gvl);
-    tmp = __riscv_vfmv_f_s_f32m1_f32(sum);
-
-    for (; j < mat.Rst[i + 1]; j++)
-     tmp += mat.Val[j] * b[mat.Col[j]];
-    y[i] = tmp * alpha + beta * y[i];
-  }
-
-  
-  return status;
+    sparse_matrix_status status;
+    spmv_crs_f32m1(mat, b, y, alpha, beta);
+    return status;
 }
 
 }

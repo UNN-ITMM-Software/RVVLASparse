@@ -1,3 +1,16 @@
+# 
+#========================================================
+# Copyright (c) RVVLASparse and Lobachevsky State University of 
+# Nizhny Novgorod and its affiliates. All rights reserved.
+# 
+# Copyright 2026 The RVVLASparse Authors (Evgeny Kozinov)
+#
+# Distributed under the MIT License
+# (See file LICENSE in the root directory of this 
+# source tree)
+#========================================================
+#
+
 cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
 project(SparseMatrix)
