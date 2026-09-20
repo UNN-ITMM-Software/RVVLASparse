@@ -213,18 +213,9 @@ public:
         else vnec_t = SpB_VNEC_L;
     }
 
-    spMtxVNEC(const spMtxVNEC &copy):
-                vnec_t(copy.vnec_t), G(copy.G), IRD_mat(copy.IRD_mat), NUM_THREADS_VNEC(copy.NUM_THREADS_VNEC)
-    {
-        M.row = G->m;
-        M.col = G->n;
-        M.nnz = G->nz;
-        M.ptr_len = G->m + 1;
-        M.ptr = G->Rst;
-        M.indices = G->Col;
-        M.val = G->Val;
-        convert<ValT, spMtxVNEC, false>(*this, *G, convertParams());
-    }
+    spMtxVNEC(const spMtxVNEC &copy) = delete;
+
+    spMtxVNEC& operator=(const spMtxVNEC &copy) = delete;
 
     spMtxVNEC(spMtxVNEC &&mov):
                     vnec_t(mov.vnec_t), IRD_mat(mov.IRD_mat), NUM_THREADS_VNEC(mov.NUM_THREADS_VNEC)
@@ -239,26 +230,6 @@ public:
         M.indices = G->Col;
         M.val = G->Val;
 
-    }
-
-    spMtxVNEC& operator=(const spMtxVNEC &copy)
-    {
-        if (this == &copy)
-            return *this;
-
-        vnec_t = copy.vnec_t;
-        IRD_mat = copy.IRD_mat;
-        G = copy.G;
-        M.row = G->m;
-        M.col = G->n;
-        M.nnz = G->nz;
-        M.ptr_len = G->m + 1;
-        M.ptr = G->Rst;
-        M.indices = G->Col;
-        M.val = G->Val;
-        NUM_THREADS_VNEC = copy.NUM_THREADS_VNEC;
-        convert<ValT, spMtxVNEC, false>(*this, *G, convertParams());
-        return *this;
     }
 
     spMtxVNEC& operator=(spMtxVNEC &&mov)

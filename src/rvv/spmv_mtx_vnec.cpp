@@ -2,6 +2,63 @@
 #include <vector>
 #include <riscv_vector.h>
 
+void *align_malloc(size_t size, size_t alignment)
+{
+    void *ptr = nullptr;
+    int ret = posix_memalign(&ptr, alignment, size);
+    if (ret != 0)
+    {
+        return nullptr;
+    }
+    return ptr;
+}
+
+namespace SparseMatrixLib 
+{
+
+int get_num_threads(void) {
+    int num_threads = 1;
+    #pragma omp parallel
+    {
+        #pragma omp single
+        num_threads = omp_get_num_threads();
+    }
+    return num_threads;
+}
+
+void MergePathDivide(
+    int diagonal,
+    int *a,
+    int *b,
+    int a_len,
+    int b_len,
+    coord *path_coordinate)
+{
+    // Diagonal search range (in x coordinate space)
+    int x_min = std::max(diagonal - b_len, 0);
+    int x_max = std::min(diagonal, a_len);
+
+    // 2D binary-search along the diagonal search range
+    while (x_min < x_max)
+    {
+        int pivot = (x_min + x_max) >> 1;
+        if ((int)a[pivot] <= b[diagonal - pivot - 1])
+        {
+            // Keep top-right half of diagonal range
+            x_min = pivot + 1;
+        }
+        else
+        {
+            // Keep bottom-left half of diagonal range
+            x_max = pivot;
+        }
+    }
+    path_coordinate->x = std::min(x_min, a_len);
+    path_coordinate->y = diagonal - x_min;
+}
+
+}
+
 namespace SparseMatrixLib
 {
 

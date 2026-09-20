@@ -1,3 +1,16 @@
+/* 
+*========================================================
+ * Copyright (c) RVVLASparse and Lobachevsky State University of 
+ * Nizhny Novgorod and its affiliates. All rights reserved.
+ * 
+ * Copyright 2026 The RVVLASparse Authors (Evgeny Kozinov)
+ *
+ * Distributed under the MIT License
+ * (See file LICENSE in the root directory of this 
+ * source tree)
+ *========================================================
+ */
+
 #include "sparse_matrix.h"
 
 #include <riscv_vector.h>
@@ -44,7 +57,7 @@ sparse_matrix_status sparse_mv<double, spMtxSELL_C_Sigma, true, SPARSE_MATRIX_MV
   const uint32_t* Perm = mat.vPerm.data();
   const double* Val = mat.vVal.data();
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic, 16)
   for(int i = 0; i < mat.cnt_b; i++)
   {
     int cur_pos = SBs[i];
@@ -144,7 +157,7 @@ sparse_matrix_status sparse_mv<float, spMtxSELL_C_Sigma, true, SPARSE_MATRIX_MV_
   const uint32_t* Perm = mat.vPerm.data();
   const float* Val = mat.vVal.data();
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic, 16)
   for(int i = 0; i < mat.cnt_b; i++)
   {
     int cur_pos = SBs[i];

@@ -16,13 +16,17 @@ sparse_matrix_status sparse_mv<double, spMtxCRS, false>(
                                double beta,
                                std::vector<double> &y){
   sparse_matrix_status status;
+
+  double * p_y = y.data();
+  const double * p_b = b.data();
+
   
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic, 256)
   for (int i = 0; i < mat.m; i++) {
     double tmp = 0.0;
     for (int j = mat.Rst[i]; j < mat.Rst[i + 1]; j++) 
-      tmp += mat.Val[j] * b[mat.Col[j]];
-    y[i] = tmp * alpha + beta * y[i];
+      tmp += mat.Val[j] * p_b[mat.Col[j]];
+    p_y[i] = tmp * alpha + beta * p_y[i];
   }
 
   return status;
@@ -38,13 +42,16 @@ sparse_matrix_status sparse_mv<float, spMtxCRS, false>(
                                float beta,
                                std::vector<float> &y){
   sparse_matrix_status status;
+
+  float * p_y = y.data();
+  const float * p_b = b.data();
   
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic, 256)
   for (int i = 0; i < mat.m; i++) {
     float tmp = 0.0;
     for (int j = mat.Rst[i]; j < mat.Rst[i + 1]; j++) 
-      tmp += mat.Val[j] * b[mat.Col[j]];
-    y[i] = alpha * tmp + beta * y[i];
+      tmp += mat.Val[j] * p_b[mat.Col[j]];
+    y[i] = alpha * tmp + beta * p_y[i];
   }
 
   return status;
