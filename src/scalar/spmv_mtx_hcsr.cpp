@@ -50,13 +50,13 @@ inline void HCSR_spmv_ker_coo_float(float alpha, const uint32_t* row_ptr, const 
 }
 
 inline void HCSR_spmv_double(double alpha, const spMtxHCSR<double>& mat, const std::vector<double>& b, double beta, std::vector<double>& y) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < mat.m; i += mat.R) {
         int maxr = std::min(mat.R, mat.m - i);
         for (int r = 0; r < maxr; ++r)
             y[i + r] *= beta;
 
-        for (int j = 0; j < mat.n; j += mat.C) { // for every block in row: 
+        for (int j = 0; j < mat.n; j += mat.C) {
             int block = j / mat.C + (i / mat.R) * mat.b_n;
             int bptr = mat.block_ptr[block];
             uint32_t row_ptr_offset = mat.row_offset[block];
@@ -76,13 +76,13 @@ inline void HCSR_spmv_double(double alpha, const spMtxHCSR<double>& mat, const s
 }
 
 inline void HCSR_spmv_float(float alpha, const spMtxHCSR<float>& mat, const std::vector<float>& b, float beta, std::vector<float>& y) {
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < mat.m; i += mat.R) {
         int maxr = std::min(mat.R, mat.m - i);
         for (int r = 0; r < maxr; ++r)
             y[i + r] *= beta;
 
-        for (int j = 0; j < mat.n; j += mat.C) { // for every block in row: 
+        for (int j = 0; j < mat.n; j += mat.C) {
             int block = j / mat.C + (i / mat.R) * mat.b_n;
             int bptr = mat.block_ptr[block];
             uint32_t row_ptr_offset = mat.row_offset[block];
